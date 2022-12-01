@@ -1,50 +1,108 @@
-import React, { Component } from "react"
-import logo from "./logo.svg"
-import "./App.css"
+import React, { useState, useEffect } from "react";
+import BookList from "./components/Books/BookList";
+import data from "./models/books.json";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import About from "./Pages/About";
+import axios from "axios";
+import Basket from "./Pages/Basket";
+import Navbar from "./components/Navbar/Navbar";
 
-class LambdaDemo extends Component {
-  constructor(props) {
-    super(props)
-    this.state = { loading: false, msg: null }
-  }
+const addTitle = (title) => {
+  console.log(`The book '${title}' was clicked`);
+};
 
-  handleClick = api => e => {
-    e.preventDefault()
+function App() {
+  const [keyword, setKeyword] = useState("");
+  const [books, setBooks] = useState(data);
+  const [quantity, setQuantity] = useState(0);
+  const [bookBasket, setBookBasket] = useState([]);
+  const [basketValue, setBasketValue] = useState(0);
 
-    this.setState({ loading: true })
-    fetch("/.netlify/functions/" + api)
-      .then(response => response.json())
-      .then(json => this.setState({ loading: false, msg: json.msg }))
-  }
+  useEffect(() => {
+    fetchData();
+  }, [keyword]);
 
-  render() {
-    const { loading, msg } = this.state
+  useEffect(() => {
+    document.title = `Basket: ${quantity}`;
+  }, [quantity]);
+  
 
-    return (
-      <p>
-        <button onClick={this.handleClick("hello")}>{loading ? "Loading..." : "Call Lambda"}</button>
-        <button onClick={this.handleClick("async-dadjoke")}>{loading ? "Loading..." : "Call Async Lambda"}</button>
-        <br />
-        <span>{msg}</span>
-      </p>
-    )
-  }
-}
+  const fetchData = () => {
+    if (keyword === "") {
+      return axios
+        .get("data.json")
+        .then((response) => {
+          setBooks(response.data);
+        })
+        .catch((error) => console.error(error));
+    } else {
+      return axios
+        .get(`https://www.googleapis.com/books/v1/volumes?q=${keyword}`)
+        .then((response) => {
+          if (response.data.items !== undefined || null)
+            setBooks(filterItems(response.data.items, keyword));
+        });
+    }
+  };
 
-class App extends Component {
-  render() {
-    return (
-      <div className="App">
-        <header className="App-header">
-          <img src={logo} className="App-logo" alt="logo" />
-          <p>
-            Edit <code>src/App.js</code> and save to reload.
-          </p>
-          <LambdaDemo />
-        </header>
+  const filterItems = (array, string) => {
+    return array.filter((o) =>
+      Object.values(o).some(
+        (k) =>
+          k.title !== undefined &&
+          k.title.toLowerCase().includes(string.toLowerCase())
+      )
+    );
+  };
+
+  return (
+    <Router>
+      <Navbar
+      basketValue={basketValue}
+        quantity={quantity}
+        setQuantity={setQuantity}
+        keyword={keyword}
+        setKeyword={setKeyword}
+      />
+      <div>
+        <Routes>
+          <Route path="/about" element={<About />} />
+          <Route
+            exact
+            path="/"
+            element={
+              <BookList
+                keyword={keyword}
+                setKeyword={setKeyword}
+                bookBasket={bookBasket}
+                setBookBasket={setBookBasket}
+                basketValue={basketValue}
+                setBasketValue={setBasketValue}
+                books={books}
+                addTitle={addTitle}
+                quantity={quantity}
+                setQuantity={setQuantity}
+              />
+            }
+          />
+          <Route
+            path="/basket"
+            element={
+              <Basket
+                books={books}
+                bookBasket={bookBasket}
+                basketValue={basketValue}
+                setBasketValue={setBasketValue}
+                setBookBasket={setBookBasket}
+                quantity={quantity}
+                setQuantity={setQuantity}
+              />
+            }
+          />
+        </Routes>
       </div>
-    )
-  }
+    </Router>
+  );
 }
 
-export default App
+export default App;
